@@ -1,4 +1,4 @@
-name: m247
+name: magento2-ddev
 type: magento2
 docroot: pub
 php_version: "8.3"
