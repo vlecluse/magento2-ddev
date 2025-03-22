@@ -35,4 +35,5 @@ CRYPT_KEY=$(openssl rand -hex 16)
 ddev magerun config:env:set "crypt.key" "$CRYPT_KEY"
 ddev magento deploy:mode:set developer
 ddev magerun admin:user:change-password admin Password123
-ddev magerun setup:upgrade
+ddev restart
+ddev launch /admin_ddev
