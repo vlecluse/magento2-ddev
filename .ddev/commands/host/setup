@@ -24,9 +24,12 @@ ddev composer install -v
 ddev magerun config:env:create --no-interaction
 ddev magento setup:config:set --db-host=db --db-name=db --db-user=db --db-password=db \
         --backend-frontname="admin_ddev" --no-interaction
+ddev import-db --file=db/base.sql.gz
 ddev magerun config:store:set "web/unsecure/base_url" "{{secure_base_url}}"
 ddev magerun config:store:set "web/secure/base_url" "${DDEV_PRIMARY_URL}/"
 ddev magerun config:store:set "web/cookie/cookie_domain" "${DDEV_HOSTNAME}"
 CRYPT_KEY=$(openssl rand -hex 16)
 ddev magerun config:env:set "crypt.key" "$CRYPT_KEY"
+ddev magento deploy:mode:set developer
 ddev magerun admin:user:change-password admin Password123
+ddev magerun setup:upgrade
