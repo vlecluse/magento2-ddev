@@ -20,6 +20,7 @@ else
     echo -e "\033[1;33mauth.json already created!\033[0m"
 fi
 
+ddev start
 ddev composer install -v
 ddev magerun config:env:create --no-interaction
 ddev magento setup:config:set --db-host=db --db-name=db --db-user=db --db-password=db \
