@@ -1,0 +1,25 @@
+#!/bin/bash
+
+## Description: Download and executes n98-magerun2
+## Usage: magerun [flags] [args]
+## Example: "ddev magerun"
+## ProjectTypes: magento2
+
+if [ ! -f "/usr/local/bin/n98-magerun2.phar" ]; then
+    curl -sS -o n98-magerun2.phar https://files.magerun.net/n98-magerun2.phar
+    curl -sS -o n98-magerun2.phar.sha256 https://files.magerun.net/sha256.php?file=n98-magerun2.phar
+    shasum -a 256 -c n98-magerun2.phar.sha256
+    rm n98-magerun2.phar.sha256
+    chmod +x n98-magerun2.phar
+    sudo cp -f n98-magerun2.phar /usr/local/bin/n98-magerun2.phar
+    rm n98-magerun2.phar
+
+    # remove pre-installed version
+    sudo rm /usr/local/bin/magerun2
+
+    sudo ln -s /usr/local/bin/n98-magerun2.phar /usr/local/bin/n98-magerun2
+    sudo ln -s /usr/local/bin/n98-magerun2.phar /usr/local/bin/mr2
+    sudo ln -s /usr/local/bin/n98-magerun2.phar /usr/local/bin/magerun2
+fi
+
+n98-magerun2.phar --root-dir=/var/www/html $@

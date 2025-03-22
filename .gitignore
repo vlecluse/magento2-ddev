@@ -8,6 +8,7 @@
 !/app/design/**
 !/app/etc/config.php
 !/app/i18n/**
+!/auth.json.sample
 !/composer.json
 !/composer.lock
 !/db

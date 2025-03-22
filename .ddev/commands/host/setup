@@ -1,0 +1,32 @@
+#!/bin/bash
+
+## Description: Setup Magento 2
+
+echo "Setting up Magento authentication..."
+if [ ! -f auth.json.sample ]; then \
+    echo "Error: auth.json.sample file not found!"; \
+    exit 1; \
+fi
+if [ ! -f auth.json ]; then \
+    bash -c 'read -p "Enter Magento Marketplace public key: " PUBLIC_KEY && \
+    echo -n "Enter Magento Marketplace private key: " && \
+    stty -echo && \
+    read PRIVATE_KEY && \
+    stty echo && \
+    echo "" && \
+    sed -e "s/<public-key>/$$PUBLIC_KEY/g" -e "s/<private-key>/$$PRIVATE_KEY/g" auth.json.sample > auth.json'
+    echo -e "\033[0;32mauth.json already created successfully!\033[0m"
+else
+    echo -e "\033[1;33mauth.json already created!\033[0m"
+fi
+
+ddev composer install -v
+ddev magerun config:env:create --no-interaction
+ddev magento setup:config:set --db-host=db --db-name=db --db-user=db --db-password=db \
+        --backend-frontname="admin_ddev" --no-interaction
+ddev magerun config:store:set "web/unsecure/base_url" "{{secure_base_url}}"
+ddev magerun config:store:set "web/secure/base_url" "${DDEV_PRIMARY_URL}/"
+ddev magerun config:store:set "web/cookie/cookie_domain" "${DDEV_HOSTNAME}"
+CRYPT_KEY=$(openssl rand -hex 16)
+ddev magerun config:env:set "crypt.key" "$CRYPT_KEY"
+ddev magerun admin:user:change-password admin Password123
