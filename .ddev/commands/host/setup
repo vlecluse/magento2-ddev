@@ -1,6 +1,8 @@
 #!/bin/bash
+set -o errexit
 
 ## Description: Setup Magento 2
+## ProjectTypes: magento2
 
 echo "Setting up Magento authentication..."
 if [ ! -f auth.json.sample ]; then \
