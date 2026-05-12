@@ -35,10 +35,15 @@ services:
       - ".:/mnt/ddev_config"
       - "ddev-global-cache:/mnt/ddev-global-cache"
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail -s localhost:9200"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
   web:
     depends_on:
-      - opensearch
+       opensearch:
+         condition: service_healthy
 
 volumes:
   opensearch:

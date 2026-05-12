@@ -17,7 +17,7 @@ if [ ! -f auth.json ]; then \
     stty echo && \
     echo "" && \
     sed -e "s/<public-key>/$$PUBLIC_KEY/g" -e "s/<private-key>/$$PRIVATE_KEY/g" auth.json.sample > auth.json'
-    echo -e "\033[0;32mauth.json already created successfully!\033[0m"
+    echo -e "\033[0;32mauth.json created successfully!\033[0m"
 else
     echo -e "\033[1;33mauth.json already created!\033[0m"
 fi
