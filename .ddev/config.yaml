@@ -1,4 +1,4 @@
-name: magento2-ddev
+name: magento2
 type: magento2
 docroot: pub
 php_version: "8.5"
