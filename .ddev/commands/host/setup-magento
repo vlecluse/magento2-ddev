@@ -18,6 +18,13 @@ MODE_STATUS="skipped"
 ADMIN_STATUS="skipped"
 UPGRADE_STATUS="skipped"
 
+require_base_dump() {
+    if [ ! -f db/base.sql.gz ]; then
+        echo "Error: db/base.sql.gz is required but was not found."
+        exit 1
+    fi
+}
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --reset-db-from-base)
@@ -153,8 +160,16 @@ else
 fi
 
 if [ "$RESET_DB_FROM_BASE" -eq 1 ]; then
+    require_base_dump
     ddev import-db --file=db/base.sql.gz
     DB_STATUS="reset-from-base"
+else
+    TABLE_COUNT="$(ddev mysql -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='db';")"
+    if [ "$TABLE_COUNT" = "0" ]; then
+        require_base_dump
+        ddev import-db --file=db/base.sql.gz
+        DB_STATUS="imported-empty-db"
+    fi
 fi
 
 ddev magerun config:store:set "web/unsecure/base_url" "{{secure_base_url}}"
