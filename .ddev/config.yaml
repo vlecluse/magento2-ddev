@@ -1,14 +1,14 @@
-name: magento2-ddev
+name: magento2
 type: magento2
 docroot: pub
-php_version: "8.3"
+php_version: "8.5"
 webserver_type: nginx-fpm
 xdebug_enabled: false
 additional_hostnames: []
 additional_fqdns: []
 database:
     type: mariadb
-    version: "10.6"
+    version: "11.4"
 upload_dirs:
     - media
 use_dns_when_possible: true

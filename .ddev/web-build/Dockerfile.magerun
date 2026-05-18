@@ -1,0 +1,11 @@
+## Install n98-magerun2 at image build time so first execution is immediate.
+RUN set -eux; \
+    cd /tmp; \
+    curl -fsSLo n98-magerun2.phar https://files.magerun.net/n98-magerun2.phar; \
+    curl -fsSLo n98-magerun2.phar.sha256 "https://files.magerun.net/sha256.php?file=n98-magerun2.phar"; \
+    sha256sum -c n98-magerun2.phar.sha256; \
+    install -m 0755 n98-magerun2.phar /usr/local/bin/n98-magerun2.phar; \
+    ln -sf /usr/local/bin/n98-magerun2.phar /usr/local/bin/n98-magerun2; \
+    ln -sf /usr/local/bin/n98-magerun2.phar /usr/local/bin/mr2; \
+    ln -sf /usr/local/bin/n98-magerun2.phar /usr/local/bin/magerun2; \
+    rm -f /tmp/n98-magerun2.phar /tmp/n98-magerun2.phar.sha256

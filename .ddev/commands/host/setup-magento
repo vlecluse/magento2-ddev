@@ -1,0 +1,207 @@
+#!/bin/bash
+set -o errexit
+
+## Description: Setup Magento 2
+## ProjectTypes: magento2
+
+RESET_DB_FROM_BASE=0
+RUN_UPGRADE=0
+RESET_AUTH=0
+NON_INTERACTIVE=0
+SET_ADMIN_PASSWORD=""
+
+AUTH_STATUS="skipped"
+ENV_STATUS="skipped"
+CONFIG_STATUS="skipped"
+DB_STATUS="skipped"
+MODE_STATUS="skipped"
+ADMIN_STATUS="skipped"
+UPGRADE_STATUS="skipped"
+
+require_base_dump() {
+    if [ ! -f db/base.sql.gz ]; then
+        echo "Error: db/base.sql.gz is required but was not found."
+        exit 1
+    fi
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --reset-db-from-base)
+            RESET_DB_FROM_BASE=1
+            ;;
+        --run-upgrade)
+            RUN_UPGRADE=1
+            ;;
+        --reset-auth)
+            RESET_AUTH=1
+            ;;
+        --non-interactive)
+            NON_INTERACTIVE=1
+            ;;
+        --set-admin-password)
+            if [ -z "${2:-}" ]; then
+                echo "Error: --set-admin-password requires a value."
+                exit 1
+            fi
+            SET_ADMIN_PASSWORD="$2"
+            shift
+            ;;
+        -h|--help)
+            cat <<EOF
+Usage: ddev setup-magento [options]
+Options:
+  --reset-db-from-base      Reset database from db/base.sql.gz
+  --run-upgrade             Run setup:upgrade
+  --reset-auth              Recreate auth.json even if it exists
+  --non-interactive         Do not prompt; require values from flags/env
+  --set-admin-password VAL  Set admin user password
+  -h, --help                Show this help
+EOF
+            exit 0
+            ;;
+        *)
+            echo "Error: Unknown option '$1'"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+if [ "$RESET_DB_FROM_BASE" -eq 1 ]; then
+    RUN_UPGRADE=1
+fi
+
+for cmd in ddev; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "Error: Required command '$cmd' is not installed or not in PATH."
+        exit 1
+    fi
+done
+
+if [ ! -f auth.json ] || [ "$RESET_AUTH" -eq 1 ]; then
+  echo "Setting up Magento authentication..."
+    PUBLIC_KEY="${MAGENTO_PUBLIC_KEY:-}"
+    PRIVATE_KEY="${MAGENTO_PRIVATE_KEY:-}"
+
+    if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
+        if [ "$NON_INTERACTIVE" -eq 1 ]; then
+            echo "Error: Missing MAGENTO_PUBLIC_KEY or MAGENTO_PRIVATE_KEY in non-interactive mode."
+            exit 1
+        fi
+
+        if [ -z "$PUBLIC_KEY" ]; then
+            read -r -p "Enter Magento Marketplace public key: " PUBLIC_KEY
+        fi
+
+        if [ -z "$PRIVATE_KEY" ]; then
+            echo -n "Enter Magento Marketplace private key: "
+            read -r -s PRIVATE_KEY
+            echo ""
+        fi
+    fi
+
+    umask 077
+    cat > auth.json <<EOF
+{
+    "http-basic": {
+        "repo.magento.com": {
+            "username": "$PUBLIC_KEY",
+            "password": "$PRIVATE_KEY"
+        }
+    }
+}
+EOF
+    AUTH_STATUS="created"
+    echo -e "\033[0;32mauth.json created successfully!\033[0m"
+else
+    AUTH_STATUS="kept-existing"
+    echo -e "\033[1;33mauth.json already created!\033[0m"
+fi
+
+ddev composer install -v
+
+if [ ! -f app/etc/env.php ]; then
+    ddev magerun config:env:create --no-interaction
+    ENV_STATUS="created"
+else
+    ENV_STATUS="kept-existing"
+fi
+
+DB_HOST="$(ddev exec php -r '$_=@include "app/etc/env.php"; echo is_array($_) ? ($_["db"]["connection"]["default"]["host"] ?? "") : "";' 2>/dev/null || true)"
+DB_NAME="$(ddev exec php -r '$_=@include "app/etc/env.php"; echo is_array($_) ? ($_["db"]["connection"]["default"]["dbname"] ?? "") : "";' 2>/dev/null || true)"
+DB_USER="$(ddev exec php -r '$_=@include "app/etc/env.php"; echo is_array($_) ? ($_["db"]["connection"]["default"]["username"] ?? "") : "";' 2>/dev/null || true)"
+
+if [ ! -f app/etc/config.php ] || [ "$DB_HOST" != "db" ] || [ "$DB_NAME" != "db" ] || [ "$DB_USER" != "db" ]; then
+    CRYPT_KEY=$(ddev exec php -r 'echo bin2hex(random_bytes(16));')
+    ddev magento setup:config:set \
+        --db-host=db \
+        --db-name=db \
+        --db-user=db \
+        --db-password=db \
+        --cache-backend=valkey \
+        --cache-backend-valkey-server=redis \
+        --cache-backend-valkey-port=6379 \
+        --cache-backend-valkey-db=0 \
+        --page-cache=valkey \
+        --page-cache-valkey-server=redis \
+        --page-cache-valkey-port=6379 \
+        --page-cache-valkey-db=1 \
+        --session-save=valkey \
+        --session-save-valkey-host=redis \
+        --session-save-valkey-port=6379 \
+        --session-save-valkey-db=2 \
+        --backend-frontname="admin_ddev" \
+        --key="$CRYPT_KEY" \
+        --no-interaction
+    CONFIG_STATUS="created"
+else
+    CONFIG_STATUS="kept-existing"
+fi
+
+if [ "$RESET_DB_FROM_BASE" -eq 1 ]; then
+    require_base_dump
+    ddev import-db --file=db/base.sql.gz
+    DB_STATUS="reset-from-base"
+else
+    TABLE_COUNT="$(ddev mysql -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='db';")"
+    if [ "$TABLE_COUNT" = "0" ]; then
+        require_base_dump
+        ddev import-db --file=db/base.sql.gz
+        DB_STATUS="imported-empty-db"
+    fi
+fi
+
+ddev magerun config:store:set "web/unsecure/base_url" "{{secure_base_url}}"
+ddev magerun config:store:set "web/secure/base_url" "${DDEV_PRIMARY_URL}/"
+ddev magerun config:store:set "web/cookie/cookie_domain" "${DDEV_HOSTNAME}"
+
+if ! ddev magento deploy:mode:show | grep -q "Current application mode: developer"; then
+    ddev magento deploy:mode:set developer
+    MODE_STATUS="set-developer"
+else
+    MODE_STATUS="already-developer"
+fi
+
+if [ -z "$SET_ADMIN_PASSWORD" ] && [ -n "${MAGENTO_ADMIN_PASSWORD:-}" ]; then
+    SET_ADMIN_PASSWORD="$MAGENTO_ADMIN_PASSWORD"
+fi
+if [ -n "$SET_ADMIN_PASSWORD" ]; then
+    ddev magerun admin:user:change-password admin "$SET_ADMIN_PASSWORD"
+    ADMIN_STATUS="updated"
+fi
+
+if [ "$RUN_UPGRADE" -eq 1 ]; then
+    ddev magerun setup:upgrade
+    UPGRADE_STATUS="ran"
+fi
+
+echo ""
+echo "Setup summary:"
+echo "  auth.json: $AUTH_STATUS"
+echo "  env.php: $ENV_STATUS"
+echo "  setup config: $CONFIG_STATUS"
+echo "  db: $DB_STATUS"
+echo "  deploy mode: $MODE_STATUS"
+echo "  admin password: $ADMIN_STATUS"
+echo "  setup:upgrade: $UPGRADE_STATUS"
