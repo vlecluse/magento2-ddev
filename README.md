@@ -11,7 +11,7 @@ A Magento 2 development environment powered by DDEV.
 ## Quick Start
 
 ```bash
-git clone git@github.com:vlecluse/magento2-ddev.git
+git clone https://github.com/vlecluse/magento2-ddev.git
 cd magento2-ddev
 ddev start
 MAGENTO_ADMIN_PASSWORD='Chang3MeN0w' ddev setup-magento
