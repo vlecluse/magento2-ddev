@@ -4,7 +4,7 @@ set -o errexit
 ## Description: Setup Magento 2
 ## ProjectTypes: magento2
 
-RESET_DB_FROM_BASE=0
+RESTORE_DB_FROM_BASE=0
 RUN_UPGRADE=0
 RESET_AUTH=0
 NON_INTERACTIVE=0
@@ -27,8 +27,8 @@ require_base_dump() {
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --reset-db-from-base)
-            RESET_DB_FROM_BASE=1
+        --restore-db-from-base)
+            RESTORE_DB_FROM_BASE=1
             ;;
         --run-upgrade)
             RUN_UPGRADE=1
@@ -51,7 +51,7 @@ while [ $# -gt 0 ]; do
             cat <<EOF
 Usage: ddev setup-magento [options]
 Options:
-  --reset-db-from-base      Reset database from db/base.sql.gz
+  --restore-db-from-base      Restore database from db/base.sql.gz
   --run-upgrade             Run setup:upgrade
   --reset-auth              Recreate auth.json even if it exists
   --non-interactive         Do not prompt; require values from flags/env
@@ -68,7 +68,7 @@ EOF
     shift
 done
 
-if [ "$RESET_DB_FROM_BASE" -eq 1 ]; then
+if [ "$RESTORE_DB_FROM_BASE" -eq 1 ]; then
     RUN_UPGRADE=1
 fi
 
@@ -159,16 +159,17 @@ else
     CONFIG_STATUS="kept-existing"
 fi
 
-if [ "$RESET_DB_FROM_BASE" -eq 1 ]; then
+if [ "$RESTORE_DB_FROM_BASE" -eq 1 ]; then
     require_base_dump
     ddev import-db --file=db/base.sql.gz
-    DB_STATUS="reset-from-base"
+    DB_STATUS="restored-from-base"
 else
     TABLE_COUNT="$(ddev mysql -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='db';")"
     if [ "$TABLE_COUNT" = "0" ]; then
         require_base_dump
         ddev import-db --file=db/base.sql.gz
         DB_STATUS="imported-empty-db"
+        RUN_UPGRADE=1
     fi
 fi
 
