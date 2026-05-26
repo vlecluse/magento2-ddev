@@ -176,6 +176,11 @@ fi
 ddev magerun config:store:set "web/unsecure/base_url" "{{secure_base_url}}"
 ddev magerun config:store:set "web/secure/base_url" "${DDEV_PRIMARY_URL}/"
 ddev magerun config:store:set "web/cookie/cookie_domain" "${DDEV_HOSTNAME}"
+ddev magerun config:store:set "catalog/search/engine" "opensearch"
+ddev magerun config:store:set "catalog/search/opensearch_server_hostname" "opensearch"
+ddev magerun config:store:set "catalog/search/opensearch_server_port" "9200"
+ddev magerun config:store:set "catalog/search/opensearch_enable_auth" "0"
+
 
 if ! ddev magento deploy:mode:show | grep -q "Current application mode: developer"; then
     ddev magento deploy:mode:set developer
